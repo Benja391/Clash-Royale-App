@@ -1,39 +1,42 @@
+const path = require('path');
 const express = require('express');
-// const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración
-app.set('view engine', 'ejs');
-app.use(express.static('public'));
+// URL base de la API de Supercell. En hosting con IP dinámica (Vercel, Render, etc.)
+// se puede usar el proxy de RoyaleAPI: https://proxy.royaleapi.dev/v1
+const API_URL = process.env.CLASH_API_URL || 'https://api.clashroyale.com/v1';
+
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 
-// Ruta principal
-app.get('/', (req, res) => {
-  res.render('index');
-});
+// Llama a la API oficial con el token del servidor (el token nunca llega al navegador).
+async function clashApi(ruta) {
+  const response = await fetch(`${API_URL}${ruta}`, {
+    headers: { Authorization: `Bearer ${process.env.CLASH_API_TOKEN}` },
+  });
+  if (!response.ok) {
+    const error = new Error(`La API respondió ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
 
-// Servidor
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+function responderError(res, error, mensaje) {
+  console.error(mensaje, error.message);
+  res.status(error.status === 404 ? 404 : 502).json({ error: mensaje });
+}
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/api/player/:tag', async (req, res) => {
-  const tag = req.params.tag;
   try {
-    const response = await fetch(`https://api.clashroyale.com/v1/players/%23${tag}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLASH_API_TOKEN}`
-      }
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'No se pudo obtener el jugador' });
-    }
-
-    const data = await response.json();
+    const data = await clashApi(`/players/%23${encodeURIComponent(req.params.tag)}`);
     res.json({
       name: data.name,
       tag: data.tag,
@@ -42,83 +45,45 @@ app.get('/api/player/:tag', async (req, res) => {
       clan: data.clan?.name || 'Sin clan',
       arena: data.arena?.name || 'Desconocida',
       wins: data.wins,
-      favoriteCard: data.currentFavouriteCard?.name || 'No definida'
+      favoriteCard: data.currentFavouriteCard?.name || 'No definida',
     });
   } catch (error) {
-    console.error('Error en la API:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    responderError(res, error, 'No se pudo obtener el jugador');
   }
 });
 
 app.get('/api/player/:tag/battlelog', async (req, res) => {
-  const tag = req.params.tag;
   try {
-    const response = await fetch(`https://api.clashroyale.com/v1/players/%23${tag}/battlelog`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLASH_API_TOKEN}`
-      }
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'No se pudo obtener el historial de batallas' });
-    }
-
-    const data = await response.json();
+    const data = await clashApi(`/players/%23${encodeURIComponent(req.params.tag)}/battlelog`);
     res.json(data.slice(0, 5)); // Solo las últimas 5 batallas
   } catch (error) {
-    console.error('Error en battlelog:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    responderError(res, error, 'No se pudo obtener el historial de batallas');
   }
 });
 
 app.get('/api/cards', async (req, res) => {
   try {
-    
-    const response = await fetch('https://api.clashroyale.com/v1/cards', {
-      headers: {
-        Authorization: `Bearer ${process.env.CLASH_API_TOKEN}`
-      }
-    });
-
-       console.log("STATUS:", response.status); // ✅ ahora está después
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'No se pudo obtener las cartas' });
-    }
-
-    const data = await response.json();
-    res.json(data.items); // devuelve solo el array de cartas
+    const data = await clashApi('/cards');
+    res.json(data.items);
   } catch (error) {
-    console.error('Error en la API de cartas:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    responderError(res, error, 'No se pudieron obtener las cartas');
   }
 });
 
 app.get('/api/card/:name', async (req, res) => {
-  const cardName = req.params.name;
   try {
-    const response = await fetch(`https://api.clashroyale.com/v1/cards`, {
-      headers: {
-
-        Authorization: `Bearer ${process.env.CLASH_API_TOKEN}`
-      }
-    });
-
-    const data = await response.json();
-    const card = data.items.find(c => c.name.toLowerCase() === cardName.toLowerCase());
-
-    if (!card) {
-      return res.status(404).json({ error: 'Carta no encontrada' });
-    }
-
+    const data = await clashApi('/cards');
+    const card = data.items.find((c) => c.name.toLowerCase() === req.params.name.toLowerCase());
+    if (!card) return res.status(404).json({ error: 'Carta no encontrada' });
     res.json(card);
-  } catch (err) {
-    console.error('Error al obtener carta:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error) {
+    responderError(res, error, 'No se pudo obtener la carta');
   }
 });
 
+// En Vercel la app se exporta y la plataforma la ejecuta; en local, levanta el servidor.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+}
 
-
-
-
+module.exports = app;

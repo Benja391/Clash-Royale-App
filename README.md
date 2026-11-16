@@ -51,6 +51,18 @@ Abrí http://localhost:3000. Requiere Node.js 18 o superior, por el `fetch` nati
 
 Para editar los estilos: `npm run sass`.
 
+## 🚀 Deploy en Vercel
+
+El proyecto funciona en Vercel sin configuración extra: `app.js` exporta la app de Express y los archivos de `public/` se sirven como estáticos.
+
+La API de Supercell solo acepta tokens asociados a una **IP fija**, y Vercel usa IPs dinámicas. Para resolverlo se usa el proxy de RoyaleAPI:
+
+1. Creá un token en https://developer.clashroyale.com con la IP `45.79.218.79`.
+2. En Vercel, cargá estas variables de entorno:
+   - `CLASH_API_TOKEN`: el token nuevo.
+   - `CLASH_API_URL`: `https://proxy.royaleapi.dev/v1`
+3. Hacé un redeploy.
+
 ---
 
 ## 👤 Autor
