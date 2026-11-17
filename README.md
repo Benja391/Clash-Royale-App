@@ -2,6 +2,8 @@
 
 Aplicación web para explorar las cartas de Clash Royale, buscar jugadores y armar tu propio mazo. El backend en **Node.js + Express** funciona como intermediario con la **API oficial de Supercell**, así el token nunca queda expuesto en el navegador.
 
+**🔗 Demo en vivo:** https://clash-royale-app-three.vercel.app/
+
 ![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white) ![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) ![Sass](https://img.shields.io/badge/Sass-CC6699?logo=sass&logoColor=white)
 
 ---
