@@ -1,6 +1,6 @@
 const path = require('path');
 const express = require('express');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +18,10 @@ async function clashApi(ruta) {
     headers: { Authorization: `Bearer ${process.env.CLASH_API_TOKEN}` },
   });
   if (!response.ok) {
-    const error = new Error(`La API respondió ${response.status}`);
+    // Supercell devuelve { reason, message } explicando el rechazo (ej.: IP no permitida).
+    const detalle = await response.json().catch(() => ({}));
+    const host = new URL(API_URL).host;
+    const error = new Error(`La API respondió ${response.status} (${host}) ${detalle.reason || ''} ${detalle.message || ''}`.trim());
     error.status = response.status;
     throw error;
   }
